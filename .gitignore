@@ -1,0 +1,22 @@
+# Environment variable secrets (Turso tokens & keys)
+.env
+
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# IDE & OS System files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Vercel output
+.vercel/

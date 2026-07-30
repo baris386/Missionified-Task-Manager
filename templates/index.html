@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Missionified - Gamified Task Management</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="bg-shape shape-1"></div>
+    <div class="bg-shape shape-2"></div>
+    <div class="bg-shape shape-3"></div>
+
+    <div class="app-container">
+        <header class="app-header">
+            <div class="brand">
+                <div class="logo-icon bounce">
+                    <i class="fa-solid fa-trophy"></i>
+                </div>
+                <div class="brand-text">
+                    <h1>Missionified</h1>
+                    <p class="subtitle">Gamified Task Management Portal</p>
+                </div>
+            </div>
+
+            <div class="scoreboard">
+                <div class="score-card main-score" id="totalScoreCard">
+                    <div class="score-icon">
+                        <i class="fa-solid fa-star pulse-icon"></i>
+                    </div>
+                    <div class="score-info">
+                        <span class="score-label">Total Score</span>
+                        <span class="score-value" id="totalScore">0</span>
+                    </div>
+                </div>
+
+                <div class="score-card stat-success">
+                    <div class="stat-icon">
+                        <i class="fa-solid fa-circle-check"></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-label">Completed</span>
+                        <span class="stat-value" id="completedCount">0</span>
+                    </div>
+                </div>
+
+                <div class="score-card stat-failed">
+                    <div class="stat-icon">
+                        <i class="fa-solid fa-circle-xmark"></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-label">Failed</span>
+                        <span class="stat-value" id="failedCount">0</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <section class="task-form-panel">
+                <div class="panel-card shadow-elevation">
+                    <div class="panel-header">
+                        <h2><i class="fa-solid fa-plus-circle"></i> Add New Task</h2>
+                        <span class="badge badge-accent">Config</span>
+                    </div>
+
+                    <form id="createTaskForm" autocomplete="off">
+                        <div class="form-group">
+                            <label for="taskTitle"><i class="fa-solid fa-heading"></i> Title <span class="required">*</span></label>
+                            <div class="input-wrapper">
+                                <input type="text" id="taskTitle" placeholder="e.g. Morning Workout (Arms, Core, Legs)" required>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="taskDetails"><i class="fa-solid fa-align-left"></i> Details</label>
+                            <div class="input-wrapper">
+                                <textarea id="taskDetails" rows="2" placeholder="Detailed notes about the task..."></textarea>
+                            </div>
+                        </div>
+
+                        <div class="subtasks-builder-box">
+                            <label class="builder-label"><i class="fa-solid fa-list-ol"></i> Subtasks (Parts)</label>
+                            <div class="subtask-input-row">
+                                <input type="text" id="newSubtaskTitle" placeholder="+ Add subtask (e.g. Core area)">
+                                <button type="button" id="addSubtaskBtn" class="btn btn-secondary btn-sm"><i class="fa-solid fa-plus"></i></button>
+                            </div>
+                            <div class="subtask-chip-list" id="subtaskChipList"></div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group half-width">
+                                <label class="toggle-label">
+                                    <span><i class="fa-solid fa-bell"></i> Reminder</span>
+                                    <input type="checkbox" id="taskReminderToggle" class="toggle-checkbox">
+                                    <span class="toggle-switch"></span>
+                                </label>
+                                <div class="input-wrapper datetime-picker-wrap hidden" id="reminderTimeWrap">
+                                    <input type="datetime-local" id="taskReminderTime">
+                                </div>
+                            </div>
+
+                            <div class="form-group half-width">
+                                <label for="taskRepeat"><i class="fa-solid fa-arrows-rotate"></i> Repeat</label>
+                                <div class="select-wrapper">
+                                    <select id="taskRepeat">
+                                        <option value="none">Never</option>
+                                        <option value="daily">Daily</option>
+                                        <option value="weekly">Weekly</option>
+                                        <option value="monthly">Monthly</option>
+                                    </select>
+                                    <i class="fa-solid fa-chevron-down select-arrow"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="toggle-label">
+                                <span><i class="fa-solid fa-percent"></i> Partial Scoring (Earn Proportional XP)</span>
+                                <input type="checkbox" id="taskAllowPartial" class="toggle-checkbox" checked>
+                                <span class="toggle-switch"></span>
+                            </label>
+                            <span class="field-hint">When enabled: Earn proportional XP even if only part of subtasks are completed!</span>
+                        </div>
+
+                        <div class="points-config-box">
+                            <span class="box-title"><i class="fa-solid fa-coins"></i> Points System</span>
+                            <div class="points-row">
+                                <div class="point-input-group pos-group">
+                                    <label for="taskPosPoints"><i class="fa-solid fa-plus"></i> Success XP</label>
+                                    <div class="point-field">
+                                        <input type="number" id="taskPosPoints" value="10" min="1" max="500">
+                                        <span class="pts-badge">+XP</span>
+                                    </div>
+                                </div>
+                                <div class="point-input-group neg-group">
+                                    <label for="taskNegPoints"><i class="fa-solid fa-minus"></i> Penalty XP</label>
+                                    <div class="point-field">
+                                        <input type="number" id="taskNegPoints" value="5" min="0" max="500">
+                                        <span class="pts-badge">-XP</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary btn-animated">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> Create Task
+                        </button>
+                    </form>
+                </div>
+            </section>
+
+            <section class="task-list-panel">
+                <div class="panel-card shadow-elevation">
+                    <div class="filter-bar">
+                        <div class="filter-tabs">
+                            <button class="tab-btn active" data-filter="all">
+                                <i class="fa-solid fa-list-check"></i> All (<span id="cntAll">0</span>)
+                            </button>
+                            <button class="tab-btn" data-filter="pending">
+                                <i class="fa-solid fa-clock"></i> Pending (<span id="cntPending">0</span>)
+                            </button>
+                            <button class="tab-btn" data-filter="completed">
+                                <i class="fa-solid fa-circle-check"></i> Completed (<span id="cntCompleted">0</span>)
+                            </button>
+                            <button class="tab-btn" data-filter="failed">
+                                <i class="fa-solid fa-circle-xmark"></i> Failed (<span id="cntFailed">0</span>)
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="tasks-container" id="tasksContainer">
+                        <div class="loading-state" id="loadingState">
+                            <div class="spinner"></div>
+                            <p>Loading tasks...</p>
+                        </div>
+                    </div>
+
+                    <div class="empty-state hidden" id="emptyState">
+                        <div class="empty-icon floating">
+                            <i class="fa-solid fa-feather-pointed"></i>
+                        </div>
+                        <h3>No tasks yet</h3>
+                        <p>Create a new task from the left panel to start earning points!</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <div class="modal-overlay hidden" id="editModal">
+        <div class="modal-content shadow-elevation-lg animated-modal">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-pen-to-square"></i> Edit Task</h3>
+                <button class="close-modal-btn" id="closeModalBtn">&times;</button>
+            </div>
+            <form id="editTaskForm">
+                <input type="hidden" id="editTaskId">
+                
+                <div class="form-group">
+                    <label for="editTaskTitle"><i class="fa-solid fa-heading"></i> Title <span class="required">*</span></label>
+                    <div class="input-wrapper">
+                        <input type="text" id="editTaskTitle" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="editTaskDetails"><i class="fa-solid fa-align-left"></i> Details</label>
+                    <div class="input-wrapper">
+                        <textarea id="editTaskDetails" rows="2"></textarea>
+                    </div>
+                </div>
+                
+                <div class="subtasks-builder-box">
+                    <label class="builder-label"><i class="fa-solid fa-list-ol"></i> Subtasks</label>
+                    <div class="subtask-input-row">
+                        <input type="text" id="editNewSubtaskTitle" placeholder="+ New subtask">
+                        <button type="button" id="editAddSubtaskBtn" class="btn btn-secondary btn-sm"><i class="fa-solid fa-plus"></i></button>
+                    </div>
+                    <div class="subtask-chip-list" id="editSubtaskChipList"></div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group half-width">
+                        <label class="toggle-label">
+                            <span><i class="fa-solid fa-bell"></i> Reminder</span>
+                            <input type="checkbox" id="editTaskReminderToggle" class="toggle-checkbox">
+                            <span class="toggle-switch"></span>
+                        </label>
+                        <div class="input-wrapper datetime-picker-wrap hidden" id="editReminderTimeWrap">
+                            <input type="datetime-local" id="editTaskReminderTime">
+                        </div>
+                    </div>
+                    <div class="form-group half-width">
+                        <label for="editTaskRepeat"><i class="fa-solid fa-arrows-rotate"></i> Repeat</label>
+                        <div class="select-wrapper">
+                            <select id="editTaskRepeat">
+                                <option value="none">Never</option>
+                                <option value="daily">Daily</option>
+                                <option value="weekly">Weekly</option>
+                                <option value="monthly">Monthly</option>
+                            </select>
+                            <i class="fa-solid fa-chevron-down select-arrow"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="toggle-label">
+                        <span><i class="fa-solid fa-percent"></i> Partial Scoring (Earn Proportional XP)</span>
+                        <input type="checkbox" id="editTaskAllowPartial" class="toggle-checkbox">
+                        <span class="toggle-switch"></span>
+                    </label>
+                </div>
+
+                <div class="points-config-box">
+                    <span class="box-title"><i class="fa-solid fa-coins"></i> Points Values</span>
+                    <div class="points-row">
+                        <div class="point-input-group pos-group">
+                            <label for="editTaskPosPoints"><i class="fa-solid fa-plus"></i> Success XP</label>
+                            <div class="point-field">
+                                <input type="number" id="editTaskPosPoints" min="1" max="500">
+                                <span class="pts-badge">+XP</span>
+                            </div>
+                        </div>
+                        <div class="point-input-group neg-group">
+                            <label for="editTaskNegPoints"><i class="fa-solid fa-minus"></i> Penalty XP</label>
+                            <div class="point-field">
+                                <input type="number" id="editTaskNegPoints" min="0" max="500">
+                                <span class="pts-badge">-XP</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" id="cancelModalBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-save"></i> Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
