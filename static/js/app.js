@@ -237,6 +237,28 @@ document.addEventListener('DOMContentLoaded', () => {
         failedCountEl.textContent = failed;
     }
 
+    function calculateDynamicPoints(task) {
+        let currentPos = task.positive_points;
+        let currentNeg = task.negative_points;
+
+        if (task.subtasks && task.subtasks.length > 0 && task.allow_partial) {
+            const totalSt = task.subtasks.length;
+            const compSt = task.subtasks.filter(st => st.completed).length;
+
+            if (compSt === 0) {
+                currentPos = 0;
+                currentNeg = task.negative_points;
+            } else {
+                const ratio = compSt / totalSt;
+                currentPos = Math.max(1, Math.round(ratio * task.positive_points));
+                const remRatio = (totalSt - compSt) / totalSt;
+                currentNeg = Math.round(remRatio * task.negative_points);
+            }
+        }
+
+        return { pos: currentPos, neg: currentNeg };
+    }
+
     function createTaskCard(task) {
         const card = document.createElement('div');
         card.className = `task-card status-${task.status}`;
@@ -279,7 +301,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const pct = Math.round((completedCount / task.subtasks.length) * 100);
 
             const itemsHtml = task.subtasks.map((st, idx) => `
-                <label class="subtask-item ${st.completed ? 'completed' : ''}" data-subtask-idx="${idx}">
+                <label class="subtask-item ${st.completed ? 'completed' : ''}" data-subtask-index="${idx}">
                     <input type="checkbox" class="subtask-checkbox" ${st.completed ? 'checked' : ''} ${task.status !== 'pending' ? 'disabled' : ''}>
                     <span>${escapeHtml(st.title)}</span>
                 </label>
@@ -300,13 +322,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let actionButtonsHtml = '';
         if (task.status === 'pending') {
+            const dynamicPts = calculateDynamicPoints(task);
             actionButtonsHtml = `
                 <div class="action-buttons-group">
                     <button class="action-btn btn-complete" data-action="complete">
-                        <i class="fa-solid fa-check"></i> Complete (+${task.positive_points})
+                        <i class="fa-solid fa-check"></i> Complete (+${dynamicPts.pos})
                     </button>
                     <button class="action-btn btn-fail" data-action="fail">
-                        <i class="fa-solid fa-xmark"></i> Postpone (-${task.negative_points})
+                        <i class="fa-solid fa-xmark"></i> Postpone (-${dynamicPts.neg})
                     </button>
                 </div>
             `;
@@ -358,8 +381,12 @@ document.addEventListener('DOMContentLoaded', () => {
         card.addEventListener('click', (e) => {
             const subtaskLabel = e.target.closest('.subtask-item');
             if (subtaskLabel && task.status === 'pending') {
-                const subtaskIdx = parseInt(subtaskLabel.dataset.subtask-idx);
-                handleToggleSubtask(task.id, subtaskIdx);
+                e.preventDefault();
+                e.stopPropagation();
+                const subtaskIdx = parseInt(subtaskLabel.getAttribute('data-subtask-index'));
+                if (!isNaN(subtaskIdx)) {
+                    handleToggleSubtask(task.id, subtaskIdx);
+                }
                 return;
             }
 
@@ -377,6 +404,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function handleToggleSubtask(taskId, subtaskIdx) {
+        const task = tasksState.find(t => t.id === taskId);
+        if (task && task.subtasks && task.subtasks[subtaskIdx] !== undefined) {
+            task.subtasks[subtaskIdx].completed = !task.subtasks[subtaskIdx].completed;
+            playSound('subtask');
+            renderUI();
+        }
+
         try {
             const res = await fetch(`/api/tasks/${taskId}/toggle_subtask`, {
                 method: 'POST',
@@ -385,8 +419,12 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (res.ok) {
-                playSound('subtask');
-                fetchTasksAndStats();
+                const updatedTask = await res.json();
+                const idx = tasksState.findIndex(t => t.id === taskId);
+                if (idx !== -1) {
+                    tasksState[idx] = updatedTask;
+                }
+                renderUI();
             }
         } catch (err) {
             console.error(err);
