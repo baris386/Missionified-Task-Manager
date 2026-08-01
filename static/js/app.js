@@ -13,6 +13,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const createTaskForm = document.getElementById('createTaskForm');
     const taskAllowPartial = document.getElementById('taskAllowPartial');
+    const taskNegGroup = document.getElementById('taskNegGroup');
+    const taskNegPoints = document.getElementById('taskNegPoints');
 
     const newSubtaskTitle = document.getElementById('newSubtaskTitle');
     const addSubtaskBtn = document.getElementById('addSubtaskBtn');
@@ -34,6 +36,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeModalBtn = document.getElementById('closeModalBtn');
     const cancelModalBtn = document.getElementById('cancelModalBtn');
     const editTaskAllowPartial = document.getElementById('editTaskAllowPartial');
+    const editTaskNegGroup = document.getElementById('editTaskNegGroup');
+    const editTaskNegPoints = document.getElementById('editTaskNegPoints');
 
     const editNewSubtaskTitle = document.getElementById('editNewSubtaskTitle');
     const editAddSubtaskBtn = document.getElementById('editAddSubtaskBtn');
@@ -42,6 +46,34 @@ document.addEventListener('DOMContentLoaded', () => {
     const toastContainer = document.getElementById('toastContainer');
 
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    function syncPenaltyFieldState(toggleEl, inputEl, groupEl) {
+        if (!toggleEl || !inputEl || !groupEl) return;
+        if (toggleEl.checked) {
+            inputEl.disabled = true;
+            inputEl.value = 0;
+            groupEl.style.opacity = '0.35';
+            groupEl.style.pointerEvents = 'none';
+        } else {
+            inputEl.disabled = false;
+            if (parseInt(inputEl.value) === 0) inputEl.value = 5;
+            groupEl.style.opacity = '1';
+            groupEl.style.pointerEvents = 'auto';
+        }
+    }
+
+    if (taskAllowPartial) {
+        taskAllowPartial.addEventListener('change', () => {
+            syncPenaltyFieldState(taskAllowPartial, taskNegPoints, taskNegGroup);
+        });
+        syncPenaltyFieldState(taskAllowPartial, taskNegPoints, taskNegGroup);
+    }
+
+    if (editTaskAllowPartial) {
+        editTaskAllowPartial.addEventListener('change', () => {
+            syncPenaltyFieldState(editTaskAllowPartial, editTaskNegPoints, editTaskNegGroup);
+        });
+    }
 
     function playSound(type) {
         if (audioCtx.state === 'suspended') {
@@ -321,6 +353,8 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         }
 
+        const showNegBadge = !task.allow_partial && !Boolean(task.subtasks && task.subtasks.length > 0);
+
         card.innerHTML = `
             <div class="task-header">
                 <div class="task-title-wrap">
@@ -335,7 +369,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 ${repeatBadgeHtml}
                 ${partialBadgeHtml}
                 <span class="badge-tag badge-pts-pos">+${task.positive_points} XP</span>
-                <span class="badge-tag badge-pts-neg">-${task.negative_points} XP</span>
+                ${showNegBadge ? `<span class="badge-tag badge-pts-neg">-${task.negative_points} XP</span>` : ''}
             </div>
 
             <div class="task-actions">
@@ -465,7 +499,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const repeat = document.getElementById('taskRepeat').value;
         const allow_partial = taskAllowPartial.checked;
         const positive_points = parseInt(document.getElementById('taskPosPoints').value) || 10;
-        const negative_points = parseInt(document.getElementById('taskNegPoints').value) || 5;
+        const negative_points = allow_partial ? 0 : (parseInt(document.getElementById('taskNegPoints').value) || 5);
 
         try {
             const res = await fetch('/api/tasks', {
@@ -481,6 +515,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 createTaskForm.reset();
                 createSubtasksDraft = [];
                 subtaskChipList.innerHTML = '';
+                syncPenaltyFieldState(taskAllowPartial, taskNegPoints, taskNegGroup);
                 showToast('New task created! 🚀', 'success', 'fa-circle-check');
                 fetchTasksAndStats();
             }
@@ -509,6 +544,8 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('editTaskPosPoints').value = task.positive_points;
         document.getElementById('editTaskNegPoints').value = task.negative_points;
 
+        syncPenaltyFieldState(editTaskAllowPartial, editTaskNegPoints, editTaskNegGroup);
+
         editSubtasksDraft = task.subtasks ? JSON.parse(JSON.stringify(task.subtasks)) : [];
         renderSubtaskChips(editSubtaskChipList, editSubtasksDraft, idx => {
             editSubtasksDraft.splice(idx, 1);
@@ -533,7 +570,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const repeat = document.getElementById('editTaskRepeat').value;
         const allow_partial = editTaskAllowPartial.checked;
         const positive_points = parseInt(document.getElementById('editTaskPosPoints').value) || 10;
-        const negative_points = parseInt(document.getElementById('editTaskNegPoints').value) || 5;
+        const negative_points = allow_partial ? 0 : (parseInt(document.getElementById('editTaskNegPoints').value) || 5);
 
         try {
             const res = await fetch(`/api/tasks/${taskId}`, {
