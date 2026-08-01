@@ -2,7 +2,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let tasksState = [];
     let statsState = { total_score: 0, tasks_completed: 0, tasks_failed: 0 };
     let currentFilter = 'all';
-    let notifiedReminders = new Set();
 
     let createSubtasksDraft = [];
     let editSubtasksDraft = [];
@@ -13,9 +12,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const failedCountEl = document.getElementById('failedCount');
 
     const createTaskForm = document.getElementById('createTaskForm');
-    const taskReminderToggle = document.getElementById('taskReminderToggle');
-    const reminderTimeWrap = document.getElementById('reminderTimeWrap');
-    const taskReminderTime = document.getElementById('taskReminderTime');
     const taskAllowPartial = document.getElementById('taskAllowPartial');
 
     const newSubtaskTitle = document.getElementById('newSubtaskTitle');
@@ -37,8 +33,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const editTaskForm = document.getElementById('editTaskForm');
     const closeModalBtn = document.getElementById('closeModalBtn');
     const cancelModalBtn = document.getElementById('cancelModalBtn');
-    const editTaskReminderToggle = document.getElementById('editTaskReminderToggle');
-    const editReminderTimeWrap = document.getElementById('editReminderTimeWrap');
     const editTaskAllowPartial = document.getElementById('editTaskAllowPartial');
 
     const editNewSubtaskTitle = document.getElementById('editNewSubtaskTitle');
@@ -92,14 +86,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             osc.start(now);
             osc.stop(now + 0.35);
-        } else if (type === 'reminder') {
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(880, now);
-            gain.gain.setValueAtTime(0.3, now);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
-
-            osc.start(now);
-            osc.stop(now + 0.6);
         }
     }
 
@@ -237,44 +223,20 @@ document.addEventListener('DOMContentLoaded', () => {
         failedCountEl.textContent = failed;
     }
 
-    function calculateDynamicPoints(task) {
-        let currentPos = task.positive_points;
-        let currentNeg = task.negative_points;
-
+    function calculateEarnedXP(task) {
         if (task.subtasks && task.subtasks.length > 0 && task.allow_partial) {
             const totalSt = task.subtasks.length;
             const compSt = task.subtasks.filter(st => st.completed).length;
-
-            if (compSt === 0) {
-                currentPos = 0;
-                currentNeg = task.negative_points;
-            } else {
-                const ratio = compSt / totalSt;
-                currentPos = Math.max(1, Math.round(ratio * task.positive_points));
-                const remRatio = (totalSt - compSt) / totalSt;
-                currentNeg = Math.round(remRatio * task.negative_points);
-            }
+            if (compSt === 0) return 0;
+            return Math.max(1, Math.round((compSt / totalSt) * task.positive_points));
         }
-
-        return { pos: currentPos, neg: currentNeg };
+        return task.positive_points;
     }
 
     function createTaskCard(task) {
         const card = document.createElement('div');
         card.className = `task-card status-${task.status}`;
         card.dataset.id = task.id;
-
-        let reminderBadgeHtml = '';
-        if (task.reminder && task.reminder_time) {
-            const formattedDate = new Date(task.reminder_time).toLocaleString('en-US', {
-                month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
-            });
-            reminderBadgeHtml = `
-                <span class="badge-tag badge-reminder" title="Reminder Time">
-                    <i class="fa-solid fa-clock"></i> ${formattedDate}
-                </span>
-            `;
-        }
 
         let repeatBadgeHtml = '';
         if (task.repeat && task.repeat !== 'none') {
@@ -322,21 +284,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let actionButtonsHtml = '';
         if (task.status === 'pending') {
-            const dynamicPts = calculateDynamicPoints(task);
-            actionButtonsHtml = `
-                <div class="action-buttons-group">
-                    <button class="action-btn btn-complete" data-action="complete">
-                        <i class="fa-solid fa-check"></i> Complete (+${dynamicPts.pos})
-                    </button>
-                    <button class="action-btn btn-fail" data-action="fail">
-                        <i class="fa-solid fa-xmark"></i> Postpone (-${dynamicPts.neg})
-                    </button>
-                </div>
-            `;
+            const isProportionalMode = Boolean(task.allow_partial || (task.subtasks && task.subtasks.length > 0));
+            if (isProportionalMode) {
+                const currentEarned = calculateEarnedXP(task);
+                actionButtonsHtml = `
+                    <div class="action-buttons-group">
+                        <button class="action-btn btn-complete" data-action="complete">
+                            <i class="fa-solid fa-flag-checkered"></i> Finish (+${currentEarned} XP)
+                        </button>
+                    </div>
+                `;
+            } else {
+                actionButtonsHtml = `
+                    <div class="action-buttons-group">
+                        <button class="action-btn btn-complete" data-action="complete">
+                            <i class="fa-solid fa-check"></i> Complete (+${task.positive_points})
+                        </button>
+                        <button class="action-btn btn-fail" data-action="fail">
+                            <i class="fa-solid fa-xmark"></i> Postpone (-${task.negative_points})
+                        </button>
+                    </div>
+                `;
+            }
         } else if (task.status === 'completed') {
+            const earned = calculateEarnedXP(task);
             actionButtonsHtml = `
                 <span class="badge-tag badge-pts-pos">
-                    <i class="fa-solid fa-circle-check"></i> Completed (+${task.positive_points} XP)
+                    <i class="fa-solid fa-circle-check"></i> Completed (+${earned} XP)
                 </span>
             `;
         } else if (task.status === 'failed') {
@@ -358,7 +332,6 @@ document.addEventListener('DOMContentLoaded', () => {
             ${subtasksHtml}
 
             <div class="task-meta">
-                ${reminderBadgeHtml}
                 ${repeatBadgeHtml}
                 ${partialBadgeHtml}
                 <span class="badge-tag badge-pts-pos">+${task.positive_points} XP</span>
@@ -460,7 +433,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 setTimeout(() => totalScoreCard.classList.remove('score-bump'), 500);
 
                 if (data.points_earned > 0) {
-                    showToast(`Postponed: +${data.points_earned} XP earned from subtasks, -${data.points_deducted} XP penalty.`, 'info', 'fa-circle-exclamation');
+                    showToast(`Finished: +${data.points_earned} XP earned from subtasks, -${data.points_deducted} XP penalty.`, 'info', 'fa-circle-exclamation');
                 } else {
                     showToast(`-${data.points_deducted} XP deducted! Stay focused.`, 'error', 'fa-circle-exclamation');
                 }
@@ -489,8 +462,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const title = document.getElementById('taskTitle').value.trim();
         const details = document.getElementById('taskDetails').value.trim();
-        const reminder = taskReminderToggle.checked;
-        const reminder_time = reminder ? taskReminderTime.value : '';
         const repeat = document.getElementById('taskRepeat').value;
         const allow_partial = taskAllowPartial.checked;
         const positive_points = parseInt(document.getElementById('taskPosPoints').value) || 10;
@@ -501,7 +472,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    title, details, reminder, reminder_time, repeat, positive_points, negative_points,
+                    title, details, repeat, positive_points, negative_points,
                     allow_partial, subtasks: createSubtasksDraft
                 })
             });
@@ -510,29 +481,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 createTaskForm.reset();
                 createSubtasksDraft = [];
                 subtaskChipList.innerHTML = '';
-                reminderTimeWrap.classList.add('hidden');
                 showToast('New task created! 🚀', 'success', 'fa-circle-check');
                 fetchTasksAndStats();
             }
         } catch (err) {
             console.error(err);
             showToast('Error creating task', 'error', 'fa-triangle-exclamation');
-        }
-    });
-
-    taskReminderToggle.addEventListener('change', () => {
-        if (taskReminderToggle.checked) {
-            reminderTimeWrap.classList.remove('hidden');
-        } else {
-            reminderTimeWrap.classList.add('hidden');
-        }
-    });
-
-    editTaskReminderToggle.addEventListener('change', () => {
-        if (editTaskReminderToggle.checked) {
-            editReminderTimeWrap.classList.remove('hidden');
-        } else {
-            editReminderTimeWrap.classList.add('hidden');
         }
     });
 
@@ -549,16 +503,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('editTaskId').value = task.id;
         document.getElementById('editTaskTitle').value = task.title;
         document.getElementById('editTaskDetails').value = task.details || '';
-        editTaskReminderToggle.checked = Boolean(task.reminder);
         editTaskAllowPartial.checked = Boolean(task.allow_partial);
-
-        if (task.reminder && task.reminder_time) {
-            editReminderTimeWrap.classList.remove('hidden');
-            document.getElementById('editTaskReminderTime').value = task.reminder_time;
-        } else {
-            editReminderTimeWrap.classList.add('hidden');
-            document.getElementById('editTaskReminderTime').value = '';
-        }
 
         document.getElementById('editTaskRepeat').value = task.repeat || 'none';
         document.getElementById('editTaskPosPoints').value = task.positive_points;
@@ -585,8 +530,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const taskId = document.getElementById('editTaskId').value;
         const title = document.getElementById('editTaskTitle').value.trim();
         const details = document.getElementById('editTaskDetails').value.trim();
-        const reminder = editTaskReminderToggle.checked;
-        const reminder_time = reminder ? document.getElementById('editTaskReminderTime').value : '';
         const repeat = document.getElementById('editTaskRepeat').value;
         const allow_partial = editTaskAllowPartial.checked;
         const positive_points = parseInt(document.getElementById('editTaskPosPoints').value) || 10;
@@ -597,7 +540,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    title, details, reminder, reminder_time, repeat, positive_points, negative_points,
+                    title, details, repeat, positive_points, negative_points,
                     allow_partial, subtasks: editSubtasksDraft
                 })
             });
@@ -611,20 +554,6 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error(err);
         }
     });
-
-    setInterval(() => {
-        const nowIsoStr = new Date().toISOString().slice(0, 16);
-        tasksState.forEach(task => {
-            if (task.status === 'pending' && task.reminder && task.reminder_time) {
-                const taskTimeStr = task.reminder_time.slice(0, 16);
-                if (taskTimeStr <= nowIsoStr && !notifiedReminders.has(task.id)) {
-                    notifiedReminders.add(task.id);
-                    playSound('reminder');
-                    showToast(`Reminder: "${task.title}" is due! ⏰`, 'info', 'fa-bell');
-                }
-            }
-        });
-    }, 10000);
 
     fetchTasksAndStats();
 });
